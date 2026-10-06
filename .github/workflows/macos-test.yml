@@ -1,0 +1,40 @@
+name: macOS build test
+
+on:
+  push:
+    branches: [ci/macos-test]
+
+jobs:
+  build-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - run: yarn install --frozen-lockfile
+
+      - run: yarn build:mac
+        env:
+          FIREBASE_API_KEY: test
+          ANIXART_PROXY_APP_KEY: test
+
+      - name: Inspect build
+        run: |
+          ls -la release
+          APP=$(ls -d release/mac*/AnixApp.app)
+          codesign --verify --deep --strict "$APP" && echo "signature ok"
+          file "$APP/Contents/MacOS/AnixApp"
+          file "$APP/Contents/Resources/app.asar.unpacked/node_modules/ffmpeg-static/ffmpeg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.os }}
+          path: release/*.dmg
